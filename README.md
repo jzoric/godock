@@ -1,2 +1,2 @@
-# godock
-Manage docker
+# WIP godock
+Manage docker using go client.
