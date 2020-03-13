@@ -94,7 +94,7 @@ func getSelectedItem(itemList []docker.Item, details string, selectLabel string)
 		Label:     selectLabel,
 		Items:     itemList,
 		Templates: templates,
-		Size:      5,
+		Size:      15,
 		Searcher:  searcher,
 	}
 
