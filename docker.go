@@ -3,14 +3,24 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/c-bata/go-prompt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"os"
+	"os/exec"
+	"strings"
 )
 
-func (g godock) imagesSuggestion() []prompt.Suggest {
+
+type dockerImage struct {
+	ID  string
+	Tag string
+	Size string
+}
+
+func (g godock) GetAllImages() []dockerImage {
 	images, _ := g.client.ImageList(context.Background(), types.ImageListOptions{All: true})
-	var suggestions []prompt.Suggest
+
+	var listImages []dockerImage
 
 	for _, image := range images {
 		ins, _, _ := g.client.ImageInspectWithRaw(context.Background(), image.ID)
@@ -18,12 +28,16 @@ func (g godock) imagesSuggestion() []prompt.Suggest {
 
 		} else {
 			for _, tag := range ins.RepoTags {
-				suggestions = append(suggestions, prompt.Suggest{Text: image.ID[7:], Description: tag + " (" + getHumanReadableSize(image.Size) + ")"})
+				listImages = append(listImages, dockerImage{
+					ID:  image.ID[7:20],
+					Tag: tag,
+					Size: getHumanReadableSize(image.Size),
+				})
 			}
 
 		}
 	}
-	return suggestions
+	return listImages
 }
 
 func getHumanReadableSize(size int64) string {
@@ -39,13 +53,8 @@ func getHumanReadableSize(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "kMGTPE"[exp])
 }
 
-func (g godock) mainSuggestions() []prompt.Suggest {
-	var suggestions []prompt.Suggest
-	suggestions = append(suggestions, prompt.Suggest{Text: "rm", Description: "Remove containers"})
-	return append(suggestions, prompt.Suggest{Text: "rmi", Description: "Remove docker image"})
-}
 
-func (g godock) containersSuggestion() []prompt.Suggest {
+func (g godock) GetAllContainers() []dockerImage {
 	containers, _ := g.client.ContainerList(context.Background(), types.ContainerListOptions{
 		Quiet:   false,
 		Size:    false,
@@ -57,11 +66,27 @@ func (g godock) containersSuggestion() []prompt.Suggest {
 		Filters: filters.Args{},
 	})
 
-	var suggestions []prompt.Suggest
+	var listImages []dockerImage
 
 	for _, container := range containers {
-		suggestions = append(suggestions, prompt.Suggest{Text: container.ID, Description: container.Names[0]})
+		listImages = append(listImages, dockerImage{
+			ID:  container.ID[:20],
+			Tag: container.Names[0],
+		})
 	}
 
-	return suggestions
+	return listImages
+}
+
+
+func executor(s string) error {
+	s = strings.TrimSpace(s)
+	cmd := exec.Command("/bin/sh", "-c", "docker "+s)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
 }
