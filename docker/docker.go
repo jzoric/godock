@@ -1,34 +1,44 @@
-package main
+package docker
 
 import (
 	"context"
 	"fmt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
-	"os"
-	"os/exec"
-	"strings"
+	"github.com/docker/docker/client"
 )
 
+type docker struct {
+	client *client.Client
+}
 
-type dockerImage struct {
+func NewDocker() (*docker, error) {
+	dockerClient, err := client.NewEnvClient()
+	if err != nil {
+		return nil, err
+	}
+	return &docker{client: dockerClient}, nil
+}
+
+
+type Item struct {
 	ID  string
 	Tag string
 	Size string
 }
 
-func (g godock) GetAllImages() []dockerImage {
-	images, _ := g.client.ImageList(context.Background(), types.ImageListOptions{All: true})
+func (d docker) GetAllImages() []Item {
+	images, _ := d.client.ImageList(context.Background(), types.ImageListOptions{All: true})
 
-	var listImages []dockerImage
+	var listImages []Item
 
 	for _, image := range images {
-		ins, _, _ := g.client.ImageInspectWithRaw(context.Background(), image.ID)
+		ins, _, _ := d.client.ImageInspectWithRaw(context.Background(), image.ID)
 		if len(ins.RepoTags) == 0 {
 
 		} else {
 			for _, tag := range ins.RepoTags {
-				listImages = append(listImages, dockerImage{
+				listImages = append(listImages, Item{
 					ID:  image.ID[7:20],
 					Tag: tag,
 					Size: getHumanReadableSize(image.Size),
@@ -54,8 +64,8 @@ func getHumanReadableSize(size int64) string {
 }
 
 
-func (g godock) GetAllContainers() []dockerImage {
-	containers, _ := g.client.ContainerList(context.Background(), types.ContainerListOptions{
+func (d docker) GetAllContainers() []Item {
+	containers, _ := d.client.ContainerList(context.Background(), types.ContainerListOptions{
 		Quiet:   false,
 		Size:    false,
 		All:     true,
@@ -66,27 +76,14 @@ func (g godock) GetAllContainers() []dockerImage {
 		Filters: filters.Args{},
 	})
 
-	var listImages []dockerImage
+	var listImages []Item
 
 	for _, container := range containers {
-		listImages = append(listImages, dockerImage{
+		listImages = append(listImages, Item{
 			ID:  container.ID[:20],
 			Tag: container.Names[0],
 		})
 	}
 
 	return listImages
-}
-
-
-func executor(s string) error {
-	s = strings.TrimSpace(s)
-	cmd := exec.Command("/bin/sh", "-c", "docker "+s)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
 }

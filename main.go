@@ -2,27 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/docker/docker/client"
 	"github.com/manifoldco/promptui"
+	"godock/docker"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 )
 
-type godock struct {
-	client *client.Client
-}
-
-func NewGodock() (*godock, error) {
-	dockerClient, err := client.NewEnvClient()
-	if err != nil {
-		return nil, err
-	}
-	return &godock{client: dockerClient}, nil
-}
-
 func main() {
-	goDock, err := NewGodock()
+	d, err := docker.NewDocker()
 	if err != nil {
 		log.Fatalf("can't start godock: %+v", err)
 	}
@@ -34,45 +23,59 @@ func main() {
 
 	switch command {
 	case 0:
-		itemList := goDock.GetAllImages()
-		details := `
---------- Details ----------
-{{ "ID:" | faint }}	{{ .ID }}
-{{ "Tag:" | faint }}	{{ .Tag }}
-{{ "Size:" | faint }}	{{ .Size }}`
-		dockerImageId, err := getSelectedItem(itemList, details)
+		itemList := d.GetAllImages()
+		details := imageDetails()
+		dockerImageId, err := getSelectedItem(itemList, details, "Images")
 		if err != nil {
 			os.Exit(2)
 		}
-		fmt.Println(dockerImageId)
+		err = run(" rmi "+dockerImageId)
+		if err != nil {
+			log.Fatalf("can't run the command: %v", err)
+		}
 	case 1:
-		allImages := goDock.GetAllContainers()
-		details := `
---------- Details ----------
-{{ "ID:" | faint }}	{{ .ID }}
-{{ "Tag:" | faint }}	{{ .Tag }}`
+		allImages := d.GetAllContainers()
+		details := containerDetails()
 		if len(allImages) == 0 {
-			fmt.Println("No containers...")
+			log.Println("No containers...")
 			return
 		}
-		dockerContainerId, err := getSelectedItem(allImages,details)
+		dockerContainerId, err := getSelectedItem(allImages, details, "Containers")
 		if err != nil {
 			os.Exit(2)
 		}
-		fmt.Println(dockerContainerId)
+		err = run(" rm "+ dockerContainerId)
+		if err != nil {
+			log.Fatalf("can't run the command: %v", err)
+		}
 	case 3:
 		os.Exit(0)
 	}
 
 }
 
-func getSelectedItem(itemList []dockerImage, details string) (string, error) {
+func imageDetails() string {
+	return `
+--------- Details ----------
+{{ "ID:" | faint }}	{{ .ID }}
+{{ "Tag:" | faint }}	{{ .Tag }}
+{{ "Size:" | faint }}	{{ .Size }}`
+}
+
+func containerDetails() string {
+	return `
+--------- Details ----------
+{{ "ID:" | faint }}	{{ .ID }}
+{{ "Tag:" | faint }}	{{ .Tag }}`
+}
+
+func getSelectedItem(itemList []docker.Item, details string, selectLabel string) (string, error) {
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}?",
 		Active:   ">> {{ .ID | cyan }} ({{ .Tag | red }})",
 		Inactive: "  {{ .ID | cyan }} ({{ .Tag | red }})",
 		Selected: ">> {{ .ID | red | cyan }}",
-		Details: details,
+		Details:  details,
 	}
 
 	searcher := func(input string, index int) bool {
@@ -84,7 +87,7 @@ func getSelectedItem(itemList []dockerImage, details string) (string, error) {
 	}
 
 	prompt := promptui.Select{
-		Label:     "",
+		Label:     selectLabel,
 		Items:     itemList,
 		Templates: templates,
 		Size:      5,
@@ -97,9 +100,12 @@ func getSelectedItem(itemList []dockerImage, details string) (string, error) {
 
 func commands() (int, error) {
 	prompt := promptui.Select{
-		Label: "",
-		Items: []string{"rmi", "rm", "exit"},
-		Size:  5,
+		Label: "Commands",
+		Items: []string{
+			"rmi - remove the docker image",
+			"rm - remove container",
+			"exit - exit godock"},
+		Size: 5,
 	}
 
 	i, _, err := prompt.Run()
@@ -109,4 +115,16 @@ func commands() (int, error) {
 		return -1, err
 	}
 	return i, nil
+}
+
+func run(s string) error {
+	s = strings.TrimSpace(s)
+	cmd := exec.Command("/bin/sh", "-c", "docker "+s)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
 }
