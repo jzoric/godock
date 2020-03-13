@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/manifoldco/promptui"
 	"godock/docker"
 	"log"
@@ -12,13 +11,15 @@ import (
 
 func main() {
 	d, err := docker.NewDocker()
+	defer d.Close()
+
 	if err != nil {
 		log.Fatalf("can't start godock: %+v", err)
 	}
 
-	command, err := commands()
+	command, err := getAllCommands()
 	if err != nil {
-		fmt.Println(err)
+		log.Fatalf("can't get all commands: %v", err)
 	}
 
 	switch command {
@@ -27,11 +28,13 @@ func main() {
 		details := imageDetails()
 		dockerImageId, err := getSelectedItem(itemList, details, "Images")
 		if err != nil {
-			os.Exit(2)
+			log.Printf("can't get selected docker image: %v", err)
+			return
 		}
 		err = run(" rmi "+dockerImageId)
 		if err != nil {
-			log.Fatalf("can't run the command: %v", err)
+			log.Printf("can't run the command: %v", err)
+			return
 		}
 	case 1:
 		allImages := d.GetAllContainers()
@@ -42,7 +45,8 @@ func main() {
 		}
 		dockerContainerId, err := getSelectedItem(allImages, details, "Containers")
 		if err != nil {
-			os.Exit(2)
+			log.Printf("can't get selected docker container:: %v", err)
+			return
 		}
 		err = run(" rm "+ dockerContainerId)
 		if err != nil {
@@ -98,7 +102,7 @@ func getSelectedItem(itemList []docker.Item, details string, selectLabel string)
 	return itemList[i].ID, err
 }
 
-func commands() (int, error) {
+func getAllCommands() (int, error) {
 	prompt := promptui.Select{
 		Label: "Commands",
 		Items: []string{
@@ -111,7 +115,6 @@ func commands() (int, error) {
 	i, _, err := prompt.Run()
 
 	if err != nil {
-		fmt.Printf("Prompt failed %v\n", err)
 		return -1, err
 	}
 	return i, nil

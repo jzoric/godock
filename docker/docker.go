@@ -6,6 +6,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"log"
 )
 
 type docker struct {
@@ -25,6 +26,12 @@ type Item struct {
 	ID  string
 	Tag string
 	Size string
+}
+
+func (d *docker) Close() {
+	if err := d.client.Close(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (d docker) GetAllImages() []Item {
