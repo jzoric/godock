@@ -1,2 +1,3 @@
-# WIP godock
-Manage docker using go client.
+# godock
+
+Delete docker images and containers!
