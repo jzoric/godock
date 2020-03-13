@@ -31,7 +31,7 @@ func main() {
 			log.Printf("can't get selected docker image: %v", err)
 			return
 		}
-		err = run(" rmi "+dockerImageId)
+		err = run(" rmi " + dockerImageId)
 		if err != nil {
 			log.Printf("can't run the command: %v", err)
 			return
@@ -48,7 +48,7 @@ func main() {
 			log.Printf("can't get selected docker container:: %v", err)
 			return
 		}
-		err = run(" rm "+ dockerContainerId)
+		err = run(" rm " + dockerContainerId)
 		if err != nil {
 			log.Fatalf("can't run the command: %v", err)
 		}

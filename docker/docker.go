@@ -21,10 +21,9 @@ func NewDocker() (*docker, error) {
 	return &docker{client: dockerClient}, nil
 }
 
-
 type Item struct {
-	ID  string
-	Tag string
+	ID   string
+	Tag  string
 	Size string
 }
 
@@ -46,8 +45,8 @@ func (d docker) GetAllImages() []Item {
 		} else {
 			for _, tag := range ins.RepoTags {
 				listImages = append(listImages, Item{
-					ID:  image.ID[7:20],
-					Tag: tag,
+					ID:   image.ID[7:20],
+					Tag:  tag,
 					Size: getHumanReadableSize(image.Size),
 				})
 			}
@@ -69,7 +68,6 @@ func getHumanReadableSize(size int64) string {
 	}
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "kMGTPE"[exp])
 }
-
 
 func (d docker) GetAllContainers() []Item {
 	containers, _ := d.client.ContainerList(context.Background(), types.ContainerListOptions{
